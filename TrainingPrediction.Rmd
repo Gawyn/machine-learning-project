@@ -1,0 +1,106 @@
+---
+title: "Predicting exercise type"
+author: "Cristian Planas"
+date: "6 Mar 2016"
+output: html_document
+---
+
+## Executive Summary
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+## Preparing datasets and libraries
+
+First, we need to load the data casting to NA all empty fields.
+
+```{r results='hide'}
+train_set <- read.csv("pml-training.csv", na.strings=c("NA","#DIV/0!", ""))
+test_set <- read.csv("pml-testing.csv", na.strings=c("NA","#DIV/0!", ""))
+```
+
+For the data analysis, predictions and plotting, we need to load certain R libraries and set a seed.
+
+```{r results='hide'}
+library(caret)
+library(randomForest)
+library(rpart.plot)
+set.seed(1234)
+```
+
+## Preparing the datasets
+
+The train dataset has a lot of columns:
+
+```{r}
+ncol(train_set)
+```
+
+We need to remove some of them, as they are probably noise and they will make our model more inefficient. First, lets remove the columns which have only NAs:
+
+```{r}
+train_set <- train_set[,colSums(is.na(train_set)) == 0]
+test_set <- test_set[,colSums(is.na(test_set)) == 0]
+```
+
+We should also remove the columns that don't add anything to our model, like id ("X") or user_name:
+
+```{r}
+drops <- c("X","user_name", "raw_timestamp_part_1", "raw_timestamp_part_2", "cvtd_timestamp", "new_window", "num_window")
+train_set <- train_set[ , !(names(train_set) %in% drops)]
+test_set <- test_set[ , !(names(test_set) %in% drops)]
+```
+
+With the target of performing a cross-validation later, we will create a validation set out of the train set.
+
+```{r}
+validation_samples <- createDataPartition(y=train_set$classe, p=0.05, list=FALSE)
+validation_set <- train_set[validation_samples, ]
+train_set <- train_set[-validation_samples, ]
+```
+
+## Building the models
+
+We will build two models on the train set, that later we will validate using the validation set. We have decided to use two different techniques: a classification tree and a random forest.
+
+This is the classification tree:
+
+```{r}
+ct_model <- train(classe ~ ., data = train_set, method = "rpart2")
+rpart.plot(ct_model$finalModel)
+```
+
+This is the random forest:
+
+```{r}
+rf_model <- randomForest(classe ~ ., data=train_set)
+varImpPlot(rf_model)
+```
+
+We decided to build the Random Forest model using the `randomForest` library instead of `caret` because the `rf` method in `caret` had a very poor performance.
+
+## Cross-validation
+
+Let's compare the outcome of both models with our validation set. First, let's see the prediction of our classification tree model:
+
+```{r}
+ct_prediction<- predict(ct_model, validation_set)
+confusionMatrix(ct_prediction, validation_set$classe)
+```
+
+The accuracy was 0.565. Now, let's see the random forest model:
+
+```{r}
+rf_prediction<- predict(rf_model, validation_set)
+confusionMatrix(rf_prediction, validation_set$classe)
+```
+
+The accuracy was 0.9932. It's obvious that the random forest model performs much better.
+
+## Prediction of the test set
+
+Finally, let's predict the test set using the random forest model:
+
+```{r}
+test_prediction <- predict(rf_model, test_set)
+test_prediction
+```
