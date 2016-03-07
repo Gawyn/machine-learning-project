@@ -27,6 +27,14 @@ library(rpart.plot)
 set.seed(1234)
 ```
 
+## Exploring the data
+
+Given that we have to predict on the classe variable, let's see the variability of it:
+
+```{r}
+plot(factor(train_set$classe))
+```
+
 ## Preparing the datasets
 
 The train dataset has a lot of columns:
@@ -94,7 +102,7 @@ rf_prediction<- predict(rf_model, validation_set)
 confusionMatrix(rf_prediction, validation_set$classe)
 ```
 
-The accuracy was 0.9932. It's obvious that the random forest model performs much better.
+The accuracy was 0.9932. It's obvious that the random forest model performs much better. The expected sample error is 0.0068, or 0.68%.
 
 ## Prediction of the test set
 
